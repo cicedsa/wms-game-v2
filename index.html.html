@@ -1,0 +1,525 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+#gr{font-family:'Courier New',monospace;background:#070b10;color:#cdd6e0;border-radius:8px;padding:10px;min-height:640px}
+.hud{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:8px}
+.hp{background:#0d141c;border:1px solid #1a3040;border-radius:5px;padding:6px 8px}
+.hl{font-size:9px;color:#3a6a8a;text-transform:uppercase;letter-spacing:1px}
+.hv{font-size:12px;color:#7dd3fc;font-weight:bold;margin-top:2px}
+.hv.warn{color:#fbbf24}.hv.danger{color:#f87171}.hv.ok{color:#4ade80}
+.order-list{list-style:none;margin-top:3px}
+.oi{display:flex;align-items:center;gap:4px;font-size:10px;padding:1px 0;color:#64748b}
+.oi.done{color:#22c55e;text-decoration:line-through}
+.oi.active{color:#fbbf24;font-weight:bold}
+.oi.pri-high{color:#f87171}
+.oi.pri-high.active{color:#ff6060;font-weight:bold}
+.dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.pri-badge{font-size:8px;padding:0 3px;border-radius:2px;margin-left:3px}
+.pri-U{background:#7f1d1d;color:#fca5a5}
+.pri-A{background:#78350f;color:#fcd34d}
+.pri-N{background:#1e3a5a;color:#93c5fd}
+.game-wrap{position:relative;background:#050910;border:1px solid #1a3040;border-radius:6px;overflow:hidden}
+#gc{display:block}
+.mo{position:absolute;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:10;border-radius:6px}
+.mb{background:#0d141c;border:2px solid #1a3040;border-radius:10px;padding:20px 28px;text-align:center;max-width:360px;width:90%}
+.mt{font-size:17px;color:#7dd3fc;margin-bottom:6px}
+.ms{font-size:11px;color:#4a7a9b;margin-bottom:14px;line-height:1.6}
+.layout-btns{display:flex;gap:8px;justify-content:center;margin-bottom:14px;flex-wrap:wrap}
+.lbtn{background:#0a1e2e;border:1px solid #1a4a6a;color:#7dd3fc;padding:5px 12px;border-radius:4px;cursor:pointer;font-family:'Courier New',monospace;font-size:11px}
+.lbtn:hover,.lbtn.sel{background:#1a3a5a;border-color:#7dd3fc}
+.sbtn{background:#0e4a6e;border:1px solid #7dd3fc;color:#7dd3fc;padding:7px 20px;border-radius:4px;cursor:pointer;font-family:'Courier New',monospace;font-size:12px;letter-spacing:1px}
+.sbtn:hover{background:#1a6a9a}
+.sbtn.green{background:#0a3a1a;border-color:#4ade80;color:#4ade80}
+.sbtn.green:hover{background:#0a5a2a}
+.scoreboard{margin-top:8px;background:#0a1218;border:1px solid #1a3040;border-radius:5px;padding:8px}
+.sc-row{display:flex;justify-content:space-between;font-size:10px;padding:2px 0;border-bottom:1px solid #0f1e2a}
+.sc-row:last-child{border-bottom:none}
+.sc-label{color:#4a7a9b}
+.sc-val{color:#7dd3fc;font-weight:bold}
+.sc-val.bad{color:#f87171}
+.sc-val.good{color:#4ade80}
+.notif{position:absolute;top:8px;left:50%;transform:translateX(-50%);padding:5px 14px;border-radius:4px;font-size:11px;font-weight:bold;pointer-events:none;z-index:20;transition:opacity 0.3s;white-space:nowrap}
+.notif.err{background:#4a0000;border:1px solid #f87171;color:#f87171}
+.notif.ok{background:#004a1a;border:1px solid #4ade80;color:#4ade80}
+.notif.warn{background:#3a2a00;border:1px solid #fbbf24;color:#fbbf24}
+.controls-hint{display:flex;gap:10px;justify-content:center;margin-top:6px;font-size:9px;color:#3a6a8a;flex-wrap:wrap}
+.kb{background:#0d141c;border:1px solid #1a3040;border-radius:2px;padding:1px 4px;font-size:9px;color:#7dd3fc}
+.deadl{font-size:10px;margin-top:3px}
+.deadl.ok{color:#4ade80}
+.deadl.warn{color:#fbbf24}
+.deadl.danger{color:#f87171}
+</style>
+
+<div id="gr">
+<h2 class="sr-only">Warehouse Picking Game v2 — simulação com penalidades, layouts e placar de eficiência</h2>
+<div class="hud">
+  <div class="hp">
+    <div class="hl">Ordem / Prioridade</div>
+    <div class="hv" id="h-order">—</div>
+    <ul class="order-list" id="h-items"></ul>
+  </div>
+  <div class="hp">
+    <div class="hl">Prazo / Status WMS</div>
+    <div class="hv" id="h-deadline">—</div>
+    <div class="deadl" id="h-deadline-bar">—</div>
+    <div style="font-size:10px;color:#3a6a8a;margin-top:4px" id="h-wms">Aguardando início</div>
+    <div id="h-confirm" style="display:none;font-size:10px;color:#4ade80;margin-top:4px;animation:none">✓ WMS CONFIRMADO</div>
+  </div>
+  <div class="hp">
+    <div class="hl">Penalidades</div>
+    <div class="hv danger" id="h-errors">0 erros</div>
+    <div style="font-size:10px;color:#f87171;margin-top:2px" id="h-penalty">Sem penalidade</div>
+    <div class="scoreboard" style="margin-top:4px">
+      <div class="sc-row"><span class="sc-label">Dist. total</span><span class="sc-val" id="sc-dist">0m</span></div>
+      <div class="sc-row"><span class="sc-label">Itens/hora</span><span class="sc-val" id="sc-iph">—</span></div>
+      <div class="sc-row"><span class="sc-label">Acurácia</span><span class="sc-val" id="sc-acc">100%</span></div>
+    </div>
+  </div>
+  <div class="hp">
+    <div class="hl">Score / Tempo</div>
+    <div class="hv ok" id="h-score">0 pts</div>
+    <div style="font-size:10px;color:#4a7a9b;margin-top:2px">Tempo: <span id="h-timer" style="color:#7dd3fc">00:00</span></div>
+    <div style="margin-top:4px;background:#050910;border-radius:3px;height:5px;overflow:hidden"><div id="h-prog" style="height:100%;width:0%;background:#4ade80;transition:width .4s;border-radius:3px"></div></div>
+    <div style="font-size:10px;color:#4a7a9b;margin-top:3px">Progresso: <span id="h-prog-txt" style="color:#7dd3fc">0/0</span></div>
+  </div>
+</div>
+
+<div class="game-wrap">
+  <canvas id="gc" width="656" height="380"></canvas>
+  <div id="notif" class="notif" style="opacity:0"></div>
+
+  <div class="mo" id="mo-start">
+    <div class="mb">
+      <div class="mt">WMS PICKING v2</div>
+      <div class="ms">Escolha o layout do armazém e a ordem de serviço.<br>Cuidado com erros de picking — há penalidades!</div>
+      <div style="font-size:10px;color:#4a7a9b;margin-bottom:8px">Selecionar layout:</div>
+      <div class="layout-btns">
+        <button class="lbtn sel" data-layout="0">Layout A<br><span style="font-size:9px;color:#4a7a9b">Corredor único</span></button>
+        <button class="lbtn" data-layout="1">Layout B<br><span style="font-size:9px;color:#4a7a9b">Grade 2x</span></button>
+        <button class="lbtn" data-layout="2">Layout C<br><span style="font-size:9px;color:#4a7a9b">Em U</span></button>
+      </div>
+      <div style="font-size:10px;color:#4a7a9b;margin-bottom:8px">Selecionar ordem:</div>
+      <div class="layout-btns" id="order-sel-btns">
+        <button class="lbtn sel" data-order="0">OS-001<br><span style="font-size:9px;color:#f87171">URGENTE · 60s</span></button>
+        <button class="lbtn" data-order="1">OS-002<br><span style="font-size:9px;color:#fcd34d">ALTA · 120s</span></button>
+        <button class="lbtn" data-order="2">OS-003<br><span style="font-size:9px;color:#93c5fd">NORMAL · 180s</span></button>
+      </div>
+      <button class="sbtn" id="btn-start">INICIAR</button>
+    </div>
+  </div>
+
+  <div class="mo" id="mo-end" style="display:none">
+    <div class="mb">
+      <div class="mt" id="end-title">ORDEM COMPLETA</div>
+      <div class="ms" id="end-body"></div>
+      <button class="sbtn green" id="btn-restart">NOVA ORDEM</button>
+    </div>
+  </div>
+</div>
+
+<div class="controls-hint">
+  <span><span class="kb">W A S D</span>/<span class="kb">↑↓←→</span> Mover</span>
+  <span><span class="kb">ESPAÇO</span> Confirmar picking</span>
+  <span><span class="kb">X</span> Reportar erro WMS</span>
+</div>
+</div>
+
+<script>
+const canvas=document.getElementById('gc');
+const ctx=canvas.getContext('2d');
+const W=656,H=380,T=32;
+
+const LAYOUTS=[
+  {name:'Corredor único',shelves:[
+    {c:2,r:2,w:3,h:2,z:'A'},{c:6,r:2,w:3,h:2,z:'B'},{c:10,r:2,w:3,h:2,z:'C'},{c:14,r:2,w:3,h:2,z:'D'},
+    {c:2,r:7,w:3,h:2,z:'E'},{c:6,r:7,w:3,h:2,z:'F'},{c:10,r:7,w:3,h:2,z:'G'},{c:14,r:7,w:3,h:2,z:'H'},
+  ],spawn:{x:9.5*T,y:5.5*T}},
+  {name:'Grade dupla',shelves:[
+    {c:1,r:1,w:2,h:3,z:'A'},{c:4,r:1,w:2,h:3,z:'B'},{c:7,r:1,w:2,h:3,z:'C'},{c:10,r:1,w:2,h:3,z:'D'},{c:13,r:1,w:2,h:3,z:'E'},{c:16,r:1,w:2,h:3,z:'F'},
+    {c:1,r:6,w:2,h:3,z:'G'},{c:4,r:6,w:2,h:3,z:'H'},{c:7,r:6,w:2,h:3,z:'I'},{c:10,r:6,w:2,h:3,z:'J'},{c:13,r:6,w:2,h:3,z:'K'},{c:16,r:6,w:2,h:3,z:'L'},
+  ],spawn:{x:9.5*T,y:5.5*T}},
+  {name:'Em U',shelves:[
+    {c:1,r:1,w:2,h:2,z:'A'},{c:1,r:4,w:2,h:2,z:'B'},{c:1,r:7,w:2,h:2,z:'C'},
+    {c:5,r:1,w:2,h:2,z:'D'},{c:5,r:4,w:2,h:2,z:'E'},{c:5,r:7,w:2,h:2,z:'F'},
+    {c:10,r:1,w:2,h:2,z:'G'},{c:10,r:4,w:2,h:2,z:'H'},{c:10,r:7,w:2,h:2,z:'I'},
+    {c:14,r:1,w:2,h:2,z:'J'},{c:14,r:4,w:2,h:2,z:'K'},{c:14,r:7,w:2,h:2,z:'L'},
+    {c:17,r:1,w:2,h:2,z:'M'},{c:17,r:4,w:2,h:2,z:'N'},{c:17,r:7,w:2,h:2,z:'O'},
+  ],spawn:{x:9*T,y:5.5*T}},
+];
+
+const ZONE_COLS=['#1a3a5a','#1a3a2a','#3a2a1a','#2a1a3a','#1a2a3a','#3a1a2a','#2a3a1a','#1a3a3a'];
+const ZONE_LIGHTS=['#7dd3fc','#6ee7b7','#fcd34d','#c4b5fd','#93c5fd','#f9a8d4','#86efac','#67e8f9'];
+
+const ORDERS_DEF=[
+  {id:'OS-2024-001',pri:'U',priLabel:'URGENTE',deadline:60,client:'CLIENTE A LTDA',code:'CLI-001',items:[
+    {sku:'A-01',desc:'Caixa Vermelha',qty:2,zone:'A'},{sku:'B-03',desc:'Frasco Azul',qty:1,zone:'B'},
+    {sku:'C-07',desc:'Pacote Verde',qty:3,zone:'C'},{sku:'D-02',desc:'Caixa Preta',qty:1,zone:'D'},
+  ]},
+  {id:'OS-2024-002',pri:'A',priLabel:'ALTA',deadline:120,client:'FORNECEDOR X SA',code:'CLI-002',items:[
+    {sku:'E-11',desc:'Rolo Plástico',qty:4,zone:'E'},{sku:'F-05',desc:'Caixa Grande',qty:2,zone:'F'},
+    {sku:'G-09',desc:'Saco 5kg',qty:1,zone:'G'},{sku:'H-03',desc:'Bobina',qty:2,zone:'H'},
+    {sku:'A-07',desc:'Caixa Pequena',qty:3,zone:'A'},
+  ]},
+  {id:'OS-2024-003',pri:'N',priLabel:'NORMAL',deadline:180,client:'DISTRIBUIDORA Z',code:'CLI-003',items:[
+    {sku:'B-12',desc:'Kit Montagem',qty:1,zone:'B'},{sku:'C-04',desc:'Palete 10un',qty:2,zone:'C'},
+    {sku:'D-08',desc:'Embalagem M',qty:5,zone:'D'},{sku:'E-01',desc:'Lacre Seg.',qty:3,zone:'E'},
+    {sku:'F-10',desc:'Caixa Iso.',qty:1,zone:'F'},{sku:'G-02',desc:'Saco 2kg',qty:4,zone:'G'},
+  ]},
+];
+
+let G={};
+let keys={};
+let running=false;
+let raf=null;
+let timerInt=null;
+let pickAnim=0;
+let cooldown=0;
+let notifTimer=0;
+let selectedLayout=0;
+let selectedOrder=0;
+let totalDistPx=0;
+
+const PX_TO_M=0.05;
+
+function zoneColorIdx(z){const i=z.charCodeAt(0)-65;return{bg:ZONE_COLS[i%ZONE_COLS.length],light:ZONE_LIGHTS[i%ZONE_LIGHTS.length]};}
+
+function shelfForZone(zone,layout){
+  const sh=LAYOUTS[layout].shelves;
+  for(const s of sh)if(s.z===zone)return s;
+  return sh[0];
+}
+
+function initGame(){
+  const lay=LAYOUTS[selectedLayout];
+  const ord=JSON.parse(JSON.stringify(ORDERS_DEF[selectedOrder]));
+  const items=ord.items.map(it=>{
+    const s=shelfForZone(it.zone,selectedLayout)||lay.shelves[Math.floor(Math.random()*lay.shelves.length)];
+    return {...it,shelf:s,picked:false};
+  });
+  G={
+    layout:selectedLayout,
+    order:{...ord,items},
+    player:{x:lay.spawn.x,y:lay.spawn.y,size:10},
+    picked:[],
+    errors:0,
+    penalty:0,
+    score:0,
+    elapsed:0,
+    deadlineLeft:ord.deadline,
+    phase:'playing',
+    currentIdx:0,
+    totalItems:items.length,
+    confirmCd:0,
+    wrongPickCd:0,
+    labelShown:false,
+  };
+  totalDistPx=0;
+  updateHUD();
+  document.getElementById('h-confirm').style.display='none';
+  document.getElementById('mo-end').style.display='none';
+}
+
+function updateHUD(){
+  const o=G.order;
+  const pri=o.pri;
+  const priColors={U:'#f87171',A:'#fcd34d',N:'#93c5fd'};
+  document.getElementById('h-order').innerHTML=`<span style="color:${priColors[pri]||'#7dd3fc'}">[${o.priLabel}]</span> ${o.id}`;
+  const ul=document.getElementById('h-items');
+  ul.innerHTML='';
+  o.items.forEach((it,i)=>{
+    const li=document.createElement('li');
+    let cls='oi';
+    if(it.picked)cls+=' done';
+    else if(i===G.currentIdx)cls+=pri==='U'?' pri-high active':' active';
+    li.className=cls;
+    li.innerHTML=`<span class="dot"></span>${it.sku} x${it.qty}<span class="pri-badge pri-${pri}">${pri}</span>`;
+    ul.appendChild(li);
+  });
+  const dl=G.deadlineLeft;
+  const dlEl=document.getElementById('h-deadline');
+  const dlBar=document.getElementById('h-deadline-bar');
+  if(dl>o.deadline*0.5){dlEl.className='hv ok';dlBar.className='deadl ok';}
+  else if(dl>o.deadline*0.2){dlEl.className='hv warn';dlBar.className='deadl warn';}
+  else{dlEl.className='hv danger';dlBar.className='deadl danger';}
+  dlEl.textContent=`${Math.ceil(dl)}s restantes`;
+  const pct=Math.max(0,dl/o.deadline*100);
+  dlBar.textContent=`Prazo: ${Math.round(pct)}%`;
+  document.getElementById('h-errors').textContent=`${G.errors} erro${G.errors!==1?'s':''}`;
+  document.getElementById('h-penalty').textContent=G.penalty>0?`-${G.penalty} pts penalidade`:'Sem penalidade';
+  const done=G.order.items.filter(i=>i.picked).length;
+  const tot=G.order.items.length;
+  document.getElementById('h-prog').style.width=(done/tot*100)+'%';
+  document.getElementById('h-prog-txt').textContent=`${done}/${tot}`;
+  document.getElementById('h-score').textContent=`${Math.max(0,G.score-G.penalty)} pts`;
+  const distM=Math.round(totalDistPx*PX_TO_M);
+  document.getElementById('sc-dist').textContent=distM+'m';
+  const iph=G.elapsed>5?Math.round(done/(G.elapsed/3600)):0;
+  document.getElementById('sc-iph').textContent=iph>0?iph:'-';
+  const total=G.errors+done;
+  const acc=total>0?Math.round(done/total*100):100;
+  const accEl=document.getElementById('sc-acc');
+  accEl.textContent=acc+'%';
+  accEl.className='sc-val'+(acc<90?' bad':' good');
+}
+
+function currentTarget(){
+  const items=G.order.items;
+  for(let i=0;i<items.length;i++)if(!items[i].picked)return{item:items[i],idx:i};
+  return null;
+}
+
+function nearTarget(item){
+  if(!item)return false;
+  const s=item.shelf;
+  const cx=(s.c+s.w/2)*T,cy=(s.r+s.h/2)*T;
+  const dx=G.player.x-cx,dy=G.player.y-cy;
+  return Math.sqrt(dx*dx+dy*dy)<T*2.2;
+}
+
+function showNotif(msg,type,duration=1800){
+  const el=document.getElementById('notif');
+  el.textContent=msg;el.className='notif '+type;el.style.opacity='1';
+  notifTimer=duration;
+}
+
+function confirmPick(){
+  if(!running||G.confirmCd>0)return;
+  const t=currentTarget();
+  if(!t){return;}
+  if(!nearTarget(t.item)){
+    showNotif('ERRO: Jogador não está no local correto!','err');
+    G.errors++;G.penalty+=50;
+    document.getElementById('h-wms').textContent='ERRO: Posicione-se corretamente';
+    updateHUD();return;
+  }
+  t.item.picked=true;
+  G.score+=100;
+  G.confirmCd=80;
+  const el=document.getElementById('h-confirm');
+  el.style.display='block';el.textContent=`✓ ${t.item.sku} x${t.item.qty} OK`;
+  document.getElementById('h-wms').textContent='Item confirmado no WMS';
+  showNotif(`✓ ${t.item.sku} separado!`,'ok');
+  setTimeout(()=>el.style.display='none',1400);
+  const nxt=currentTarget();
+  if(!nxt){
+    setTimeout(finishOrder,800);
+  } else {
+    G.currentIdx=nxt.idx;
+    document.getElementById('h-wms').textContent=`Próximo: ${nxt.item.sku} — Zona ${nxt.item.zone}`;
+  }
+  updateHUD();
+}
+
+function wrongPick(){
+  if(!running||G.wrongPickCd>0)return;
+  G.errors++;G.penalty+=30;G.wrongPickCd=90;
+  showNotif('ERRO DE PICKING! -30 pts','err',2200);
+  document.getElementById('h-wms').textContent='ERRO registrado no WMS';
+  updateHUD();
+}
+
+function finishOrder(){
+  running=false;
+  clearInterval(timerInt);
+  const timeBonus=Math.round(Math.max(0,G.deadlineLeft)*2);
+  const errPenalty=G.penalty;
+  const base=G.score;
+  const final=Math.max(0,base+timeBonus-errPenalty);
+  const won=G.deadlineLeft>0;
+  document.getElementById('end-title').textContent=won?'ORDEM COMPLETA!':'PRAZO EXPIRADO';
+  document.getElementById('end-title').style.color=won?'#4ade80':'#f87171';
+  const distM=Math.round(totalDistPx*PX_TO_M);
+  const done=G.order.items.filter(i=>i.picked).length;
+  const iph=G.elapsed>0?Math.round(done/(G.elapsed/3600)):0;
+  const acc=G.errors+done>0?Math.round(done/(G.errors+done)*100):100;
+  document.getElementById('end-body').innerHTML=
+    `<strong style="color:${won?'#4ade80':'#f87171'}">${G.order.id} — ${G.order.priLabel}</strong><br><br>`+
+    `Itens separados: ${done}/${G.order.items.length}<br>`+
+    `Erros de picking: ${G.errors}<br>`+
+    `Distância percorrida: ${distM}m<br>`+
+    `Itens/hora: ${iph}<br>`+
+    `Acurácia: ${acc}%<br><br>`+
+    `Score base: ${base} pts<br>`+
+    `Bônus prazo: +${timeBonus} pts<br>`+
+    `Penalidade: -${errPenalty} pts<br>`+
+    `<strong style="color:#7dd3fc;font-size:15px">TOTAL: ${final} pts</strong><br>`+
+    (won?`<span style="color:#4ade80">Etiqueta emitida para ${G.order.client}</span>`:`<span style="color:#f87171">Prazo expirado! Ordem re-enfileirada.</span>`);
+  document.getElementById('mo-end').style.display='flex';
+}
+
+function isBlocked(nx,ny){
+  const m=8;
+  for(const s of LAYOUTS[G.layout].shelves){
+    if(nx+m>s.c*T&&nx-m<(s.c+s.w)*T&&ny+m>s.r*T&&ny-m<(s.r+s.h)*T)return true;
+  }
+  return nx<12||nx>W-12||ny<12||ny>H-12;
+}
+
+function drawGame(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#050910';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#0c1520';ctx.lineWidth=0.5;
+  for(let c=0;c<Math.ceil(W/T);c++){ctx.beginPath();ctx.moveTo(c*T,0);ctx.lineTo(c*T,H);ctx.stroke();}
+  for(let r=0;r<Math.ceil(H/T);r++){ctx.beginPath();ctx.moveTo(0,r*T);ctx.lineTo(W,r*T);ctx.stroke();}
+
+  const lay=LAYOUTS[G.layout];
+  for(const s of lay.shelves){
+    const zc=zoneColorIdx(s.z);
+    const sx=s.c*T,sy=s.r*T,sw=s.w*T,sh=s.h*T;
+    ctx.fillStyle=zc.bg;ctx.fillRect(sx,sy,sw,sh);
+    ctx.strokeStyle=zc.light+'55';ctx.lineWidth=1;ctx.strokeRect(sx,sy,sw,sh);
+    for(let d=1;d<s.h;d++){ctx.strokeStyle=zc.light+'22';ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(sx,sy+d*T);ctx.lineTo(sx+sw,sy+d*T);ctx.stroke();}
+    for(let d=1;d<s.w;d++){ctx.strokeStyle=zc.light+'22';ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(sx+d*T,sy);ctx.lineTo(sx+d*T,sy+sh);ctx.stroke();}
+    ctx.fillStyle=zc.light+'99';ctx.font='bold 9px Courier New';ctx.textAlign='center';
+    ctx.fillText(s.z,sx+sw/2,sy+sh/2+4);
+  }
+
+  pickAnim=(pickAnim+1)%60;
+  const t=currentTarget();
+  if(t){
+    const s=t.item.shelf;
+    const lx=(s.c+s.w/2)*T,ly=(s.r+s.h/2)*T;
+    const zc=zoneColorIdx(t.item.zone)||zoneColorIdx(s.z);
+    const near=nearTarget(t.item);
+    const pri=G.order.pri;
+    const baseAlpha=pri==='U'?0.6:pri==='A'?0.4:0.3;
+    const alpha=near?1:baseAlpha+baseAlpha*Math.sin(pickAnim/60*Math.PI*2*(pri==='U'?2:1));
+
+    ctx.save();ctx.globalAlpha=alpha*0.25;
+    ctx.fillStyle=zc.light;ctx.beginPath();ctx.arc(lx,ly,T*(near?2:1.4),0,Math.PI*2);ctx.fill();ctx.restore();
+
+    ctx.save();ctx.globalAlpha=alpha;
+    ctx.fillStyle=zc.light;ctx.beginPath();ctx.arc(lx,ly,near?11:6,0,Math.PI*2);ctx.fill();ctx.restore();
+
+    if(near){
+      ctx.save();
+      ctx.fillStyle='#000000dd';ctx.fillRect(lx-50,ly-T-16,100,32);
+      ctx.strokeStyle=zc.light;ctx.lineWidth=1;ctx.strokeRect(lx-50,ly-T-16,100,32);
+      ctx.fillStyle=zc.light;ctx.font='bold 10px Courier New';ctx.textAlign='center';
+      ctx.fillText(t.item.sku+' x'+t.item.qty,lx,ly-T-5);
+      ctx.fillStyle='#cdd6e0cc';ctx.font='8px Courier New';
+      ctx.fillText(t.item.desc,lx,ly-T+7);
+      ctx.restore();
+      const pb=0.5+0.5*Math.abs(Math.sin(pickAnim/20*Math.PI));
+      ctx.save();ctx.globalAlpha=pb;
+      ctx.fillStyle='#000a';ctx.fillRect(lx-72,ly+T/2+4,144,14);
+      ctx.fillStyle='#fbbf24';ctx.font='8px Courier New';ctx.textAlign='center';
+      ctx.fillText('[ESPAÇO] CONFIRMAR   [X] REPORTAR ERRO',lx,ly+T/2+14);
+      ctx.restore();
+    } else {
+      const px=G.player.x,py=G.player.y;
+      const dx=lx-px,dy=ly-py,dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist>40){
+        const ax=px+(dx/dist)*32,ay=py+(dy/dist)*32;
+        const angle=Math.atan2(dy,dx);
+        ctx.save();ctx.globalAlpha=0.3+0.4*Math.sin(pickAnim/30*Math.PI);
+        ctx.strokeStyle=zc.light;ctx.lineWidth=2;ctx.beginPath();
+        ctx.moveTo(px+(dx/dist)*18,py+(dy/dist)*18);ctx.lineTo(ax,ay);
+        ctx.lineTo(ax-Math.cos(angle-.45)*9,ay-Math.sin(angle-.45)*9);
+        ctx.moveTo(ax,ay);ctx.lineTo(ax-Math.cos(angle+.45)*9,ay-Math.sin(angle+.45)*9);
+        ctx.stroke();ctx.restore();
+      }
+    }
+  }
+
+  for(const item of G.order.items){
+    if(item.picked){
+      const s=item.shelf;
+      ctx.save();ctx.globalAlpha=0.4;ctx.fillStyle='#22c55e';
+      ctx.beginPath();ctx.arc((s.c+s.w/2)*T,(s.r+s.h/2)*T,4,0,Math.PI*2);ctx.fill();ctx.restore();
+    }
+  }
+
+  const px=G.player.x,py=G.player.y;
+  ctx.save();
+  ctx.fillStyle='#1e40af';ctx.beginPath();ctx.arc(px,py,10,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#93c5fd';ctx.beginPath();ctx.arc(px,py,7,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#1e3a8a';ctx.font='bold 8px Courier New';ctx.textAlign='center';ctx.fillText('P',px,py+3);
+  ctx.restore();
+
+  if(G.errors>0){
+    ctx.save();ctx.globalAlpha=0.06+0.06*Math.sin(pickAnim/15*Math.PI);
+    ctx.fillStyle='#f87171';ctx.fillRect(0,0,W,H);ctx.restore();
+  }
+
+  ctx.fillStyle='#070b10cc';ctx.fillRect(0,H-16,W,16);
+  const leg=[{c:'#7dd3fc',t:'Zona A'},{c:'#f87171',t:'Urgente'},{c:'#fbbf24',t:'Alta'},
+    {c:'#93c5fd',t:'Normal'},{c:'#4ade80',t:'Coletado'},{c:'#93c5fd',t:'Player'}];
+  let lx=8;ctx.font='8px Courier New';ctx.textAlign='left';
+  for(const l of leg){
+    ctx.fillStyle=l.c;ctx.beginPath();ctx.arc(lx+4,H-8,3,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#64748b';ctx.fillText(l.t,lx+10,H-4);lx+=70;
+  }
+}
+
+function gameLoop(){
+  if(!running)return;
+  const spd=2.4;
+  let dx=0,dy=0;
+  if(keys['ArrowUp']||keys['w']||keys['W'])dy-=spd;
+  if(keys['ArrowDown']||keys['s']||keys['S'])dy+=spd;
+  if(keys['ArrowLeft']||keys['a']||keys['A'])dx-=spd;
+  if(keys['ArrowRight']||keys['d']||keys['D'])dx+=spd;
+  if(dx&&dy){dx*=.707;dy*=.707;}
+  const nx=G.player.x+dx,ny=G.player.y+dy;
+  const prevX=G.player.x,prevY=G.player.y;
+  if(!isBlocked(nx,G.player.y))G.player.x=nx;
+  if(!isBlocked(G.player.x,ny))G.player.y=ny;
+  const moved=Math.sqrt((G.player.x-prevX)**2+(G.player.y-prevY)**2);
+  totalDistPx+=moved;
+  if(G.confirmCd>0)G.confirmCd--;
+  if(G.wrongPickCd>0)G.wrongPickCd--;
+  if(notifTimer>0){notifTimer-=16.67;if(notifTimer<=0)document.getElementById('notif').style.opacity='0';}
+  drawGame();
+  raf=requestAnimationFrame(gameLoop);
+}
+
+document.addEventListener('keydown',e=>{
+  keys[e.key]=true;
+  if(!running)return;
+  if(e.key===' '){e.preventDefault();confirmPick();}
+  if(e.key==='x'||e.key==='X'){e.preventDefault();wrongPick();}
+});
+document.addEventListener('keyup',e=>keys[e.key]=false);
+
+document.querySelectorAll('.lbtn[data-layout]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.lbtn[data-layout]').forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel');selectedLayout=parseInt(b.dataset.layout);
+  });
+});
+document.querySelectorAll('.lbtn[data-order]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.lbtn[data-order]').forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel');selectedOrder=parseInt(b.dataset.order);
+  });
+});
+
+document.getElementById('btn-start').addEventListener('click',()=>{
+  document.getElementById('mo-start').style.display='none';
+  initGame();running=true;
+  const t=currentTarget();
+  if(t)document.getElementById('h-wms').textContent=`Ir para: ${t.item.sku} — Zona ${t.item.zone}`;
+  timerInt=setInterval(()=>{
+    if(!running)return;
+    G.elapsed++;
+    G.deadlineLeft=Math.max(0,G.order.deadline-G.elapsed);
+    const m=String(Math.floor(G.elapsed/60)).padStart(2,'0');
+    const s=String(G.elapsed%60).padStart(2,'0');
+    document.getElementById('h-timer').textContent=m+':'+s;
+    if(G.deadlineLeft<=10&&G.deadlineLeft>0)showNotif('PRAZO EXPIRANDO! '+Math.ceil(G.deadlineLeft)+'s','warn',1100);
+    if(G.deadlineLeft<=0&&!G.labelShown){G.labelShown=true;finishOrder();}
+    updateHUD();
+  },1000);
+  gameLoop();
+});
+
+document.getElementById('btn-restart').addEventListener('click',()=>{
+  clearInterval(timerInt);cancelAnimationFrame(raf);
+  document.getElementById('mo-end').style.display='none';
+  document.getElementById('mo-start').style.display='flex';
+  running=false;
+});
+
+ctx.fillStyle='#050910';ctx.fillRect(0,0,W,H);
+</script>
